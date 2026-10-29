@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Student Feedback System</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700;800&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f7;--surface:#fff;--ink:#14213d;--muted:#5b6785;--line:#d5dce8;--accent:#f4a300;--accent-ink:#14213d;--ok:#1f8a5b;--bad:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1526;--surface:#172138;--ink:#eaf0fb;--muted:#9aa7c4;--line:#2a3757;--ok:#4cc28a;--bad:#ef7b6e}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 16px/1.55 "Source Sans 3",system-ui,sans-serif}
+h1,h2,h3{font-family:"Bricolage Grotesque",system-ui,sans-serif;margin:0;line-height:1.15}
+header{background:#14213d;color:#fff;padding:28px 20px 0}
+.wrap{max-width:960px;margin:0 auto}
+header h1{font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800}
+header p{margin:6px 0 18px;color:#b9c4de;max-width:56ch}
+nav{display:flex;gap:4px}
+nav button{background:transparent;color:#b9c4de;border:0;padding:12px 20px;font:600 1rem "Source Sans 3",sans-serif;cursor:pointer;border-radius:10px 10px 0 0}
+nav button[aria-selected=true]{background:var(--bg);color:var(--ink)}
+.badge{background:var(--bad);color:#fff;border-radius:20px;font-size:.8rem;padding:1px 8px;margin-left:6px}
+main{padding:24px 20px 60px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px;margin-bottom:18px}
+label{display:block;font-weight:600;margin:14px 0 6px}
+input,select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:110px;resize:vertical}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.row{grid-template-columns:1fr}}
+.stars{display:flex;gap:6px}
+.stars button{font-size:2rem;line-height:1;background:none;border:0;cursor:pointer;color:var(--line);padding:2px}
+.stars button.on{color:var(--accent)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:11px 22px;border-radius:9px;font:700 1rem "Source Sans 3",sans-serif;cursor:pointer;margin-top:18px}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line);margin-top:0}
+.btn.sm{padding:5px 12px;margin:0;font-size:.9rem}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.msg{margin-top:14px;font-weight:600}
+.msg.ok{color:var(--ok)}.msg.err{color:var(--bad)}
+.setup{background:#fff3cd;color:#664d03;border:1px solid #ffda6a;border-radius:10px;padding:12px 16px;margin-bottom:18px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.stat b{display:block;font:800 2rem "Bricolage Grotesque",sans-serif}
+.stat span{color:var(--muted)}
+.bar{display:grid;grid-template-columns:140px 1fr 44px;gap:10px;align-items:center;margin:8px 0}
+.bar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar i{display:block;height:12px;border-radius:6px;background:var(--accent)}
+.track{background:var(--bg);border-radius:6px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.toolbar select,.toolbar input{flex:1;min-width:140px}
+.fb{border-top:1px solid var(--line);padding:14px 0}
+.fb:first-child{border-top:0}
+.fb.new{border-left:4px solid var(--accent);padding-left:12px}
+.meta{color:var(--muted);font-size:.9rem;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.tag{background:var(--bg);border:1px solid var(--line);border-radius:20px;padding:1px 10px;font-size:.85rem}
+.tag.new{background:var(--accent);color:#14213d;border-color:var(--accent);font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:28px 0}
+#toast{position:fixed;right:16px;bottom:16px;background:#14213d;color:#fff;border-left:5px solid var(--accent);padding:14px 18px;border-radius:10px;max-width:320px;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>Student Feedback System</h1>
+<p>Share honest feedback about your class, teacher, and subject. It helps improve teaching and learning.</p>
+<nav role="tablist">
+<button role="tab" id="t-form" aria-selected="true">Give feedback</button>
+<button role="tab" id="t-admin" aria-selected="false">Admin<span class="badge" id="badge" hidden>0</span></button>
+</nav></div></header>
+
+<main class="wrap">
+<div class="setup" id="setup" hidden><b>Setup needed:</b> add your Firebase config in <code>index.html</code> (see <code>firebaseConfig</code> near the top of the script). Until then, nothing can be saved.</div>
+
+<section id="p-form">
+<form class="card" id="fbForm" novalidate>
+<h2>New feedback</h2>
+<div class="row">
+<div><label for="name">Name (optional)</label><input id="name" maxlength="60" placeholder="Anonymous is fine"></div>
+<div><label for="cls">Class / Semester</label><select id="cls"><option value="">Select</option><option>1st Year</option><option>2nd Year</option><option>3rd Year</option></select></div>
+</div>
+<div class="row">
+<div><label for="subject">Subject</label><input id="subject" maxlength="60" placeholder="e.g. Data Structures"></div>
+<div><label for="teacher">Teacher</label><input id="teacher" maxlength="60" placeholder="e.g. Prof. Sharma"></div>
+</div>
+<label for="cat">Category</label>
+<select id="cat"><option>Teaching</option><option>Course content</option><option>Lab / Practical</option><option>Infrastructure</option><option>Other</option></select>
+<label id="rl">Rating</label>
+<div class="stars" id="stars" role="radiogroup" aria-labelledby="rl"></div>
+<label for="comment">Comment</label>
+<textarea id="comment" maxlength="800" placeholder="What went well? What could be better?"></textarea>
+<button class="btn" id="submitBtn" type="submit">Submit feedback</button>
+<div class="msg" id="formMsg" role="status"></div>
+</form>
+</section>
+
+<section id="p-admin" hidden>
+<form class="card" id="loginForm">
+<h2>Admin login</h2>
+<label for="email">Email</label>
+<input id="email" type="email" autocomplete="username">
+<label for="pw">Password</label>
+<input id="pw" type="password" autocomplete="current-password">
+<button class="btn" type="submit">Log in</button>
+<div class="msg err" id="loginMsg" role="alert"></div>
+</form>
+
+<div id="dash" hidden>
+<div class="stats" id="stats"></div>
+<div class="card"><h3>Average rating by teacher</h3><div id="bars"></div></div>
+<div class="card">
+<div class="toolbar">
+<input id="q" type="search" placeholder="Search comment, teacher, subject" aria-label="Search">
+<select id="fStatus" aria-label="Status filter"><option value="">All statuses</option><option value="new">New</option><option value="reviewed">Reviewed</option></select>
+<select id="fCat" aria-label="Category filter"><option value="">All categories</option><option>Teaching</option><option>Course content</option><option>Lab / Practical</option><option>Infrastructure</option><option>Other</option></select>
+<select id="fRate" aria-label="Rating filter"><option value="">All ratings</option><option value="5">5 star</option><option value="4">4 star</option><option value="3">3 star</option><option value="2">2 star</option><option value="1">1 star</option></select>
+</div>
+<div class="toolbar">
+<button class="btn ghost sm" id="alerts" type="button">Enable desktop alerts</button>
+<button class="btn ghost sm" id="markAll" type="button">Mark all reviewed</button>
+<button class="btn ghost sm" id="csv" type="button">Export CSV</button>
+<button class="btn ghost sm" id="logout" type="button">Log out</button>
+</div>
+<div id="list"></div>
+</div>
+</div>
+</section>
+</main>
+<div id="toast" hidden role="status"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, writeBatch, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// ---- PASTE YOUR FIREBASE CONFIG HERE (Firebase console > Project settings > Your apps > Web app) ----
+const firebaseConfig = {
+  apiKey: "AIzaSyCTS1DLHUhnaXntBvXyf71qisVqu_RNXFg",
+  authDomain: "student-feedback-1fcf7.firebaseapp.com",
+  projectId: "student-feedback-1fcf7",
+  appId: "1:295469651251:web:fd9bbda4ced9d50e9cda46"
+};
+// -----------------------------------------------------------------------------------------------------
+
+const configured = !firebaseConfig.apiKey.startsWith("PASTE");
+$("setup").hidden = configured;
+let db, auth, unsub = null, data = [], firstLoad = true;
+if (configured) {
+  const app = initializeApp(firebaseConfig);
+  db = getFirestore(app); auth = getAuth(app);
+  onAuthStateChanged(auth, user => { user ? startListening() : stopListening(); renderAdmin(); });
+}
+
+function $(id){ return document.getElementById(id); }
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const when = f => { const d = f.createdAt && f.createdAt.toDate ? f.createdAt.toDate() : new Date(); return d; };
+
+// Tabs
+function show(tab){
+  const admin = tab === "admin";
+  $("p-form").hidden = admin; $("p-admin").hidden = !admin;
+  $("t-form").setAttribute("aria-selected", !admin);
+  $("t-admin").setAttribute("aria-selected", admin);
+  renderAdmin();
+}
+$("t-form").onclick = () => show("form");
+$("t-admin").onclick = () => show("admin");
+
+// Stars
+let rating = 0;
+const starsEl = $("stars");
+for (let i = 1; i <= 5; i++) {
+  const b = document.createElement("button");
+  b.type = "button"; b.textContent = "★"; b.setAttribute("role", "radio");
+  b.setAttribute("aria-label", i + " star"); b.setAttribute("aria-checked", "false");
+  b.onclick = () => { rating = i; paintStars(); };
+  starsEl.appendChild(b);
+}
+function paintStars(){ [...starsEl.children].forEach((b, i) => { b.classList.toggle("on", i < rating); b.setAttribute("aria-checked", i + 1 === rating); }); }
+
+// Submit
+$("fbForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("formMsg"), v = id => $(id).value.trim();
+  if (!configured) { msg.className = "msg err"; msg.textContent = "Firebase is not configured yet."; return; }
+  if (!v("cls") || !v("subject") || !v("teacher") || !v("comment") || !rating) {
+    msg.className = "msg err"; msg.textContent = "Please fill in class, subject, teacher, rating, and comment."; return;
+  }
+  $("submitBtn").disabled = true;
+  try {
+    await addDoc(collection(db, "feedback"), {
+      name: v("name") || "Anonymous", cls: v("cls"), subject: v("subject"), teacher: v("teacher"),
+      cat: v("cat"), rating, comment: v("comment"), status: "new", createdAt: serverTimestamp()
+    });
+    e.target.reset(); rating = 0; paintStars();
+    msg.className = "msg ok"; msg.textContent = "Feedback submitted. Thank you!";
+  } catch (err) {
+    msg.className = "msg err"; msg.textContent = "Could not submit. Check your connection and try again.";
+  }
+  $("submitBtn").disabled = false;
+});
+
+// Login / logout
+$("loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  if (!configured) { $("loginMsg").textContent = "Firebase is not configured yet."; return; }
+  try { await signInWithEmailAndPassword(auth, $("email").value.trim(), $("pw").value); $("pw").value = ""; $("loginMsg").textContent = ""; }
+  catch (err) { $("loginMsg").textContent = "Incorrect email or password."; }
+});
+$("logout").onclick = () => signOut(auth);
+
+// Live feed with notifications
+function startListening(){
+  stopListening(); firstLoad = true;
+  unsub = onSnapshot(query(collection(db, "feedback"), orderBy("createdAt", "desc")), snap => {
+    data = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (!firstLoad) {
+      snap.docChanges().filter(c => c.type === "added" && !c.doc.metadata.hasPendingWrites).forEach(c => notify(c.doc.data()));
+    }
+    firstLoad = false; renderAdmin();
+  }, () => { $("loginMsg").textContent = "No permission to read feedback. Check Firestore rules."; });
+}
+function stopListening(){ if (unsub) unsub(); unsub = null; data = []; }
+
+let toastTimer;
+function notify(f){
+  const text = `New ${f.rating}★ feedback for ${f.teacher} (${f.subject})`;
+  const t = $("toast"); t.textContent = text; t.hidden = false;
+  t.onclick = () => { t.hidden = true; };
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 7000);
+  try { if ("Notification" in window && Notification.permission === "granted") new Notification("Student Feedback", { body: text + "\n" + f.comment.slice(0, 80) }); } catch (e) {}
+}
+$("alerts").onclick = async () => {
+  if (!("Notification" in window)) { alert("This browser does not support desktop notifications."); return; }
+  const p = await Notification.requestPermission();
+  $("alerts").textContent = p === "granted" ? "Desktop alerts on" : "Alerts blocked in browser";
+};
+
+// Admin view
+function filtered(){
+  const q = $("q").value.toLowerCase(), c = $("fCat").value, r = $("fRate").value, s = $("fStatus").value;
+  return data.filter(f => (!c || f.cat === c) && (!r || String(f.rating) === r) && (!s || f.status === s) &&
+    (!q || (f.comment + f.teacher + f.subject + f.name).toLowerCase().includes(q)));
+}
+function renderAdmin(){
+  const loggedIn = !!(auth && auth.currentUser);
+  $("loginForm").hidden = loggedIn; $("dash").hidden = !loggedIn;
+  const unread = data.filter(f => f.status === "new").length;
+  $("badge").hidden = !loggedIn || !unread; $("badge").textContent = unread;
+  if (!loggedIn) return;
+  const avg = data.length ? (data.reduce((s, f) => s + f.rating, 0) / data.length).toFixed(1) : "–";
+  $("stats").innerHTML =
+    `<div class="stat"><b>${data.length}</b><span>Total feedback</span></div>
+     <div class="stat"><b>${unread}</b><span>Awaiting review</span></div>
+     <div class="stat"><b>${avg}</b><span>Average rating</span></div>
+     <div class="stat"><b>${data.filter(f => f.rating <= 2).length}</b><span>Low ratings (1–2)</span></div>`;
+  const by = {};
+  data.forEach(f => (by[f.teacher] = by[f.teacher] || []).push(f.rating));
+  const rows = Object.entries(by).map(([t, a]) => [t, a.reduce((s, x) => s + x, 0) / a.length, a.length]).sort((a, b) => b[1] - a[1]);
+  $("bars").innerHTML = rows.length ? rows.map(([t, a, n]) =>
+    `<div class="bar"><span title="${esc(t)} (${n})">${esc(t)}</span><div class="track"><i style="width:${a / 5 * 100}%"></i></div><b>${a.toFixed(1)}</b></div>`).join("")
+    : '<div class="empty">No data yet.</div>';
+  const list = filtered();
+  $("list").innerHTML = list.length ? list.map(f =>
+    `<article class="fb ${f.status === "new" ? "new" : ""}"><div class="meta">
+      <b style="color:var(--ink)">${"★".repeat(f.rating)}${"☆".repeat(5 - f.rating)}</b>
+      <span>${esc(f.teacher)} · ${esc(f.subject)}</span>
+      <span class="tag ${f.status === "new" ? "new" : ""}">${f.status === "new" ? "New" : "Reviewed"}</span>
+      <span class="tag">${esc(f.cat)}</span><span class="tag">${esc(f.cls)}</span>
+      <span>${esc(f.name)} · ${when(f).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</span>
+      ${f.status === "new" ? `<button class="btn ghost sm" data-act="review" data-id="${f.id}">Mark reviewed</button>` : ""}
+      <button class="btn danger sm" data-act="del" data-id="${f.id}">Delete</button></div>
+      <p style="margin:8px 0 0">${esc(f.comment)}</p></article>`).join("")
+    : '<div class="empty">No feedback matches your filters.</div>';
+}
+["q", "fCat", "fRate", "fStatus"].forEach(id => $(id).addEventListener("input", renderAdmin));
+
+$("list").addEventListener("click", async e => {
+  const { act, id } = e.target.dataset || {};
+  if (!act) return;
+  try {
+    if (act === "review") await updateDoc(doc(db, "feedback", id), { status: "reviewed" });
+    if (act === "del" && confirm("Delete this feedback?")) await deleteDoc(doc(db, "feedback", id));
+  } catch (err) { alert("Action failed. Check your permissions."); }
+});
+$("markAll").onclick = async () => {
+  const pending = data.filter(f => f.status === "new");
+  if (!pending.length) return;
+  const batch = writeBatch(db);
+  pending.slice(0, 400).forEach(f => batch.update(doc(db, "feedback", f.id), { status: "reviewed" }));
+  try { await batch.commit(); } catch (err) { alert("Action failed. Check your permissions."); }
+};
+
+// CSV
+$("csv").onclick = () => {
+  const cell = s => '"' + String(s).replace(/"/g, '""') + '"';
+  const head = ["Date", "Name", "Class", "Subject", "Teacher", "Category", "Rating", "Status", "Comment"];
+  const rows = filtered().map(f => [when(f).toISOString(), f.name, f.cls, f.subject, f.teacher, f.cat, f.rating, f.status, f.comment].map(cell).join(","));
+  const blob = new Blob(["\ufeff" + [head.join(","), ...rows].join("\n")], { type: "text/csv" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "feedback.csv"; a.click();
+  URL.revokeObjectURL(a.href);
+};
+</script>
+</body>
+</html>
